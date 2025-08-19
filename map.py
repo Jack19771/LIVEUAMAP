@@ -5,20 +5,20 @@ from datetime import datetime, timedelta
 from folium import plugins
 import json
 
-class MapaUkrainyZeZdjeciami:
+class UkraineMapWithImages:
     """
-    Mapa konfliktu ze zdjęciami w popup'ach markerów
+    Conflict map with images in marker popups
     """
     
     def __init__(self):
-        self.mapa = folium.Map(
+        self.map = folium.Map(
             location=[49.0, 32.0], 
             zoom_start=6,
             tiles='OpenStreetMap'
         )
         
-        # Miasta ukraińskie
-        self.miasta = {
+        # Ukrainian cities
+        self.cities = {
             'Kyiv': (50.4501, 30.5234),
             'Kharkiv': (49.9935, 36.2304),
             'Odesa': (46.4825, 30.7233),
@@ -35,238 +35,212 @@ class MapaUkrainyZeZdjeciami:
             'Avdiivka': (48.1372, 37.7544)
         }
         
-        # Bezpieczne kolory Folium
-        self.kolory = ['red', 'blue', 'green', 'purple', 'orange', 'darkred']
-        self.ikony = ['flash', 'fire', 'plane', 'warning-sign', 'home', 'info-sign']
+        # Safe Folium colors
+        self.colors = ['red', 'blue', 'green', 'purple', 'orange', 'darkred']
+        self.icons = ['flash', 'fire', 'plane', 'warning-sign', 'home', 'info-sign']
         
-        # Typy wydarzeń
-        self.typy_wydarzen = [
-            'Atak rakietowy',
-            'Atak dronami', 
-            'Ostrzał artyleryjski',
-            'Alert przeciwlotniczy',
-            'Atak na infrastrukturę',
-            'Inne wydarzenia'
+        # Event types
+        self.event_types = [
+            'Missile strike',
+            'Drone attack', 
+            'Artillery shelling',
+            'Air raid alert',
+            'Infrastructure attack',
+            'Other events'
         ]
         
-        # Zdjęcia dla różnych typów wydarzeń (przykładowe URL)
-        self.zdjecia_wydarzen = {
-            'Atak rakietowy': [
+        # Images for different event types (example URLs)
+        self.event_images = {
+            'Missile strike': [
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51189',  # Placeholder
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51178',
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51089'
             ],
-            'Atak dronami': [
+            'Drone attack': [
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51190',
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51191',
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51192'
             ],
-            'Ostrzał artyleryjski': [
+            'Artillery shelling': [
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51193',
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51194',
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51195'
             ],
-            'Alert przeciwlotniczy': [
+            'Air raid alert': [
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51195',
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51196'
             ],
-            'Atak na infrastrukturę': [
+            'Infrastructure attack': [
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51197',
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51198'
             ],
-            'Inne wydarzenia': [
+            'Other events': [
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51199',
                 'https://war.ukraine.ua/imagebank-category/infrustrucure-destruction/?photo=51200'
             ]
         }
     
-    def pobierz_zdjecie_z_unsplash(self, miasto, typ_wydarzenia):
+    def get_local_image(self, city, event_type):
         """
-        Pobiera prawdziwe zdjęcie z Unsplash API
-        """
-        try:
-            # Słowa kluczowe dla różnych typów wydarzeń
-            keywords_map = {
-                'Atak rakietowy': 'explosion,destruction,war',
-                'Atak dronami': 'drone,military,technology',
-                'Ostrzał artyleryjski': 'artillery,military,warfare',
-                'Alert przeciwlotniczy': 'siren,alert,warning',
-                'Atak na infrastrukturę': 'infrastructure,damage,building',
-                'Inne wydarzenia': 'military,conflict,news'
-            }
-            
-            # Użyj słów kluczowych dla typu wydarzenia
-            keywords = keywords_map.get(typ_wydarzenia, 'military,ukraine')
-            
-            # Unsplash API (nie wymaga klucza dla podstawowych zapytań)
-            url = f"https://source.unsplash.com/400x300/?{keywords}"
-            
-            return url
-            
-        except Exception as e:
-            print(f"⚠️ Błąd pobierania zdjęcia: {e}")
-            # Fallback - losowe zdjęcie
-            return f"https://picsum.photos/400/300?random={random.randint(1, 100)}"
-    
-    def pobierz_zdjecie_miejsca_google_street_view(self, lat, lon):
-        """
-        Pobiera zdjęcie z Google Street View API
-        UWAGA: Wymaga klucza API Google
+        Gets local image from Pics folder
         """
         try:
-            # Google Street View Static API
-            api_key = "YOUR_GOOGLE_API_KEY"  # Zamień na swój klucz
+            import os
             
-            if api_key == "YOUR_GOOGLE_API_KEY":
-                # Fallback jeśli nie ma klucza
+            # Check if Pics folder exists
+            pics_folder = "Pics"
+            if not os.path.exists(pics_folder):
+                print(f"⚠️ Pics folder not found, creating it...")
+                os.makedirs(pics_folder)
                 return f"https://picsum.photos/400/300?random={random.randint(1, 100)}"
             
-            url = f"https://maps.googleapis.com/maps/api/streetview?size=400x300&location={lat},{lon}&key={api_key}"
-            return url
+            # Get list of available images (1.jpg to 10.jpg)
+            available_images = []
+            for i in range(1, 11):  # 1 to 10
+                image_path = os.path.join(pics_folder, f"{i}.jpg")
+                if os.path.exists(image_path):
+                    available_images.append(f"{i}.jpg")
+            
+            if not available_images:
+                print(f"⚠️ No images found in Pics folder")
+                return f"https://picsum.photos/400/300?random={random.randint(1, 100)}"
+            
+            # Select random image from available ones
+            selected_image = random.choice(available_images)
+            image_path = os.path.join(pics_folder, selected_image)
+            
+            # Convert backslashes to forward slashes for web compatibility
+            web_path = image_path.replace('\\', '/')
+            
+            print(f"📸 Using local image: {web_path}")
+            return web_path
             
         except Exception as e:
-            print(f"⚠️ Błąd Google Street View: {e}")
+            print(f"⚠️ Error getting local image: {e}")
+            # Fallback - random image
             return f"https://picsum.photos/400/300?random={random.randint(1, 100)}"
     
-    def pobierz_zdjecie_z_wikimedia(self, miasto):
+    def get_google_street_view_image(self, lat, lon):
         """
-        Próbuje pobrać zdjęcie miasta z Wikimedia Commons
+        Gets image from Google Street View API (DISABLED - using local images)
+        WARNING: Requires Google API key
         """
-        try:
-            # Wikipedia API dla zdjęć
-            search_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{miasto}"
-            
-            response = requests.get(search_url, timeout=5)
-            
-            if response.status_code == 200:
-                data = response.json()
-                if 'thumbnail' in data and 'source' in data['thumbnail']:
-                    # Zwiększ rozmiar zdjęcia
-                    img_url = data['thumbnail']['source']
-                    # Zmień rozmiar na większy
-                    img_url = img_url.replace('/320px-', '/400px-')
-                    return img_url
-            
-            # Fallback
-            return f"https://picsum.photos/400/300?random={random.randint(1, 100)}"
-            
-        except Exception as e:
-            print(f"⚠️ Błąd Wikimedia: {e}")
-            return f"https://picsum.photos/400/300?random={random.randint(1, 100)}"
+        # Always return local image instead
+        return self.get_local_image("", "")
     
-    def generuj_wydarzenia_ze_zdjeciami(self, ile=60):
-        """Generuje wydarzenia z przypisanymi zdjęciami"""
-        print(f"📍 Generowanie {ile} wydarzeń ze zdjęciami...")
+    def get_image_from_wikimedia(self, city):
+        """
+        Gets city image from Wikimedia Commons (DISABLED - using local images)
+        """
+        # Always return local image instead
+        return self.get_local_image(city, "")
+    
+    def generate_events_with_images(self, count=60):
+        """Generates events with assigned images"""
+        print(f"📍 Generating {count} events with images...")
         
-        wydarzenia = []
+        events = []
         
-        for i in range(ile):
-            # Wybierz losowe miasto
-            miasto_nazwa = random.choice(list(self.miasta.keys()))
-            coords = self.miasta[miasto_nazwa]
+        for i in range(count):
+            # Choose random city
+            city_name = random.choice(list(self.cities.keys()))
+            coords = self.cities[city_name]
             
-            # Dodaj małe przesunięcie
+            # Add small offset
             lat = coords[0] + random.uniform(-0.05, 0.05)
             lon = coords[1] + random.uniform(-0.05, 0.05)
             
-            # Wybierz typ
-            typ = random.choice(self.typy_wydarzen)
-            kolor = random.choice(self.kolory)
-            ikona = random.choice(self.ikony)
+            # Choose type
+            event_type = random.choice(self.event_types)
+            color = random.choice(self.colors)
+            icon = random.choice(self.icons)
             
-            # Prosta data
-            godzina = random.randint(0, 23)
-            minuta = random.randint(0, 59)
+            # Simple time
+            hour = random.randint(0, 23)
+            minute = random.randint(0, 59)
             
-            # Wybierz metodę pobrania zdjęcia
-            metoda_zdjecia = random.choice(['unsplash', 'wikimedia', 'placeholder'])
+            # Choose image retrieval method - now always uses local images
+            image_method = 'local'
+            image_url = self.get_local_image(city_name, event_type)
             
-            if metoda_zdjecia == 'unsplash':
-                zdjecie_url = self.pobierz_zdjecie_z_unsplash(miasto_nazwa, typ)
-            elif metoda_zdjecia == 'wikimedia':
-                zdjecie_url = self.pobierz_zdjecie_z_wikimedia(miasto_nazwa)
-            else:
-                # Placeholder z tematycznymi obrazami
-                zdjecie_url = random.choice(self.zdjecia_wydarzen.get(typ, self.zdjecia_wydarzen['Inne wydarzenia']))
-            
-            wydarzenie = {
+            event = {
                 'id': i,
-                'miasto': miasto_nazwa,
+                'city': city_name,
                 'lat': lat,
                 'lon': lon,
-                'typ': typ,
-                'kolor': kolor,
-                'ikona': ikona,
-                'czas': f"{godzina:02d}:{minuta:02d}",
-                'opis': f"{typ} w rejonie {miasto_nazwa}. Sytuacja monitorowana przez służby.",
-                'zrodlo': random.choice(['OSINT', 'Local Reports', 'Military Sources', 'News Agency']),
-                'zdjecie_url': zdjecie_url,
-                'metoda_zdjecia': metoda_zdjecia,
-                'intensywnosc': random.choice(['Niska', 'Średnia', 'Wysoka']),
-                'status': random.choice(['Potwierdzone', 'Weryfikowane', 'Zgłoszone'])
+                'type': event_type,
+                'color': color,
+                'icon': icon,
+                'time': f"{hour:02d}:{minute:02d}",
+                'description': f"{event_type} in {city_name} area. Situation monitored by services.",
+                'source': random.choice(['OSINT', 'Local Reports', 'Military Sources', 'News Agency']),
+                'image_url': image_url,
+                'image_method': image_method,
+                'intensity': random.choice(['Low', 'Medium', 'High']),
+                'status': random.choice(['Confirmed', 'Verifying', 'Reported'])
             }
             
-            wydarzenia.append(wydarzenie)
+            events.append(event)
         
-        print(f"✅ Wygenerowano {len(wydarzenia)} wydarzeń ze zdjęciami")
-        return wydarzenia
+        print(f"✅ Generated {len(events)} events with images")
+        return events
     
-    def utworz_popup_ze_zdjeciem(self, wydarzenie):
-        """Tworzy popup HTML ze zdjęciem"""
+    def create_popup_with_image(self, event):
+        """Creates HTML popup with image"""
         
-        # HTML popup z wbudowanym zdjęciem
+        # HTML popup with embedded image
         popup_html = f"""
         <div style="width: 420px; font-family: 'Segoe UI', Arial, sans-serif;">
             
-            <!-- Nagłówek -->
-            <div style="background: linear-gradient(90deg, {wydarzenie['kolor']} 0%, {wydarzenie['kolor']}99 100%); 
+            <!-- Header -->
+            <div style="background: linear-gradient(90deg, {event['color']} 0%, {event['color']}99 100%); 
                         color: white; padding: 12px; margin: -10px -10px 15px -10px; 
                         border-radius: 8px 8px 0 0;">
                 <h3 style="margin: 0; font-size: 16px; text-align: center;">
-                    🎯 {wydarzenie['typ']}
+                    🎯 {event['type']}
                 </h3>
             </div>
             
-            <!-- Zdjęcie -->
+            <!-- Image -->
             <div style="text-align: center; margin: 15px 0;">
-                <img src="{wydarzenie['zdjecie_url']}" 
+                <img src="{event['image_url']}" 
                      style="width: 100%; max-width: 380px; height: 200px; 
                             object-fit: cover; border-radius: 8px; 
                             border: 2px solid #ddd;"
-                     onerror="this.src='https://via.placeholder.com/380x200/cccccc/666666?text=Zdjęcie+niedostępne'"
-                     alt="Zdjęcie z miejsca wydarzenia">
+                     onerror="this.src='https://via.placeholder.com/380x200/cccccc/666666?text=Image+unavailable'"
+                     alt="Image from event location">
                 <div style="font-size: 10px; color: #888; margin-top: 5px;">
-                    Źródło zdjęcia: {wydarzenie['metoda_zdjecia']}
+                    Image source: {event['image_method']}
                 </div>
             </div>
             
-            <!-- Informacje -->
+            <!-- Information -->
             <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin: 10px 0;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
-                    <div><b>📍 Miasto:</b> {wydarzenie['miasto']}</div>
-                    <div><b>⏰ Czas:</b> {wydarzenie['czas']}</div>
-                    <div><b>📊 Status:</b> {wydarzenie['status']}</div>
-                    <div><b>🔥 Intensywność:</b> {wydarzenie['intensywnosc']}</div>
+                    <div><b>📍 City:</b> {event['city']}</div>
+                    <div><b>⏰ Time:</b> {event['time']}</div>
+                    <div><b>📊 Status:</b> {event['status']}</div>
+                    <div><b>🔥 Intensity:</b> {event['intensity']}</div>
                 </div>
             </div>
             
-            <!-- Opis -->
+            <!-- Description -->
             <div style="margin: 12px 0; padding: 10px; background: #fff3cd; 
                        border-left: 4px solid #ffc107; border-radius: 4px;">
-                <b>📝 Opis sytuacji:</b><br>
-                <span style="font-size: 13px;">{wydarzenie['opis']}</span>
+                <b>📝 Situation description:</b><br>
+                <span style="font-size: 13px;">{event['description']}</span>
             </div>
             
-            <!-- Źródło -->
+            <!-- Source -->
             <div style="margin: 12px 0; text-align: center; padding: 8px; 
                        background: #e9ecef; border-radius: 4px; font-size: 11px;">
-                <b>📡 Źródło informacji:</b> {wydarzenie['zrodlo']}<br>
-                <b>🆔 ID wydarzenia:</b> #{wydarzenie['id']:03d}
+                <b>📡 Information source:</b> {event['source']}<br>
+                <b>🆔 Event ID:</b> #{event['id']:03d}
             </div>
             
-            <!-- Współrzędne -->
+            <!-- Coordinates -->
             <div style="margin-top: 10px; font-size: 10px; color: #666; text-align: center;">
-                📐 Współrzędne: {wydarzenie['lat']:.4f}, {wydarzenie['lon']:.4f}
+                📐 Coordinates: {event['lat']:.4f}, {event['lon']:.4f}
             </div>
             
         </div>
@@ -274,92 +248,92 @@ class MapaUkrainyZeZdjeciami:
         
         return popup_html
     
-    def dodaj_markery_ze_zdjeciami(self, wydarzenia):
-        """Dodaje markery ze zdjęciami w popup'ach"""
-        print(f"📌 Dodawanie {len(wydarzenia)} markerów ze zdjęciami...")
+    def add_markers_with_images(self, events):
+        """Adds markers with images in popups"""
+        print(f"📌 Adding {len(events)} markers with images...")
         
-        # Grupuj według typu
-        grupy = {}
-        for wydarzenie in wydarzenia:
-            typ = wydarzenie['typ']
-            if typ not in grupy:
-                grupy[typ] = []
-            grupy[typ].append(wydarzenie)
+        # Group by type
+        groups = {}
+        for event in events:
+            event_type = event['type']
+            if event_type not in groups:
+                groups[event_type] = []
+            groups[event_type].append(event)
         
-        # Dodaj grupy na mapę
-        for typ, lista_wydarzen in grupy.items():
+        # Add groups to map
+        for event_type, event_list in groups.items():
             
-            # Utwórz grupę z klasteryzacją
+            # Create group with clustering
             cluster = plugins.MarkerCluster(
-                name=f"{typ} ({len(lista_wydarzen)})",
+                name=f"{event_type} ({len(event_list)})",
                 options={
-                    'disableClusteringAtZoom': 10,  # Rozklasteruj przy zbliżeniu
+                    'disableClusteringAtZoom': 10,  # Uncluster when zoomed in
                     'maxClusterRadius': 50
                 }
             )
             
-            for wydarzenie in lista_wydarzen:
+            for event in event_list:
                 
-                # Utwórz popup ze zdjęciem
-                popup_html = self.utworz_popup_ze_zdjeciem(wydarzenie)
+                # Create popup with image
+                popup_html = self.create_popup_with_image(event)
                 
-                # Tooltip z podstawowymi informacjami
+                # Tooltip with basic information
                 tooltip_text = f"""
                 <div style="font-size: 12px;">
-                    <b>{wydarzenie['typ']}</b><br>
-                    📍 {wydarzenie['miasto']}<br>
-                    ⏰ {wydarzenie['czas']}<br>
-                    📊 {wydarzenie['status']}
+                    <b>{event['type']}</b><br>
+                    📍 {event['city']}<br>
+                    ⏰ {event['time']}<br>
+                    📊 {event['status']}
                 </div>
                 """
                 
-                # Dodaj marker
+                # Add marker
                 folium.Marker(
-                    [wydarzenie['lat'], wydarzenie['lon']],
+                    [event['lat'], event['lon']],
                     popup=folium.Popup(popup_html, max_width=450),
                     icon=folium.Icon(
-                        color=wydarzenie['kolor'],
-                        icon=wydarzenie['ikona'],
+                        color=event['color'],
+                        icon=event['icon'],
                         prefix='glyphicon'
                     ),
                     tooltip=folium.Tooltip(tooltip_text)
                 ).add_to(cluster)
             
-            # Dodaj grupę do mapy
-            cluster.add_to(self.mapa)
+            # Add group to map
+            cluster.add_to(self.map)
         
-        print("✅ Markery ze zdjęciami dodane!")
+        print("✅ Markers with images added!")
     
-    def dodaj_statystyki_rozszerzone(self, wydarzenia):
-        """Rozszerzone statystyki z informacjami o zdjęciach"""
+    def add_extended_statistics(self, events):
+        """Extended statistics with image information"""
         
-        # Podstawowe statystyki
-        stats_typow = {}
-        stats_miast = {}
-        stats_statusow = {}
-        stats_zdjec = {}
+        # Basic statistics
+        type_stats = {}
+        city_stats = {}
+        status_stats = {}
+        image_stats = {}
         
-        for wydarzenie in wydarzenia:
-            # Typy
-            typ = wydarzenie['typ']
-            stats_typow[typ] = stats_typow.get(typ, 0) + 1
+        for event in events:
+            # Types
+            event_type = event['type']
+            type_stats[event_type] = type_stats.get(event_type, 0) + 1
             
-            # Miasta
-            miasto = wydarzenie['miasto']
-            stats_miast[miasto] = stats_miast.get(miasto, 0) + 1
+            # Cities
+            city = event['city']
+            city_stats[city] = city_stats.get(city, 0) + 1
             
-            # Statusy
-            status = wydarzenie['status']
-            stats_statusow[status] = stats_statusow.get(status, 0) + 1
+            # Status
+            status = event['status']
+            status_stats[status] = status_stats.get(status, 0) + 1
             
-            # Źródła zdjęć
-            metoda = wydarzenie['metoda_zdjecia']
-            stats_zdjec[metoda] = stats_zdjec.get(metoda, 0) + 1
+            # Image sources
+            method = event['image_method']
+            image_stats[method] = image_stats.get(method, 0) + 1
         
-        # Top 5 miast
-        top_miasta = sorted(stats_miast.items(), key=lambda x: x[1], reverse=True)[:5]
+        # Top 5 cities
+        top_cities = sorted(city_stats.items(), key=lambda x: x[1], reverse=True)[:5]
         
-        # HTML panelu
+        # HTML panel
         panel_html = f"""
         <div style="position: fixed; top: 10px; left: 10px; 
                     width: 320px; background: white; 
@@ -368,32 +342,32 @@ class MapaUkrainyZeZdjeciami:
                     box-shadow: 0 6px 20px rgba(0,0,0,0.15);">
             
             <h3 style="margin: 0 0 12px 0; text-align: center; color: #0066cc;">
-                🇺🇦 MONITOR KONFLIKTU + ZDJĘCIA
+                🇺🇦 CONFLICT MONITOR + IMAGES
             </h3>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0;">
                 <div style="text-align: center; padding: 10px; background: #f0f8ff; border-radius: 6px;">
-                    <div style="font-size: 20px; font-weight: bold; color: #0066cc;">{len(wydarzenia)}</div>
-                    <div style="font-size: 10px;">Łączne wydarzenia</div>
+                    <div style="font-size: 20px; font-weight: bold; color: #0066cc;">{len(events)}</div>
+                    <div style="font-size: 10px;">Total events</div>
                 </div>
                 <div style="text-align: center; padding: 10px; background: #f0fff0; border-radius: 6px;">
-                    <div style="font-size: 20px; font-weight: bold; color: #228b22;">{len([e for e in wydarzenia if e['status'] == 'Potwierdzone'])}</div>
-                    <div style="font-size: 10px;">Potwierdzone</div>
+                    <div style="font-size: 20px; font-weight: bold; color: #228b22;">{len([e for e in events if e['status'] == 'Confirmed'])}</div>
+                    <div style="font-size: 10px;">Confirmed</div>
                 </div>
             </div>
             
-            <h4 style="margin: 12px 0 5px 0; font-size: 13px;">🎯 Typy wydarzeń:</h4>
+            <h4 style="margin: 12px 0 5px 0; font-size: 13px;">🎯 Event types:</h4>
             <div style="max-height: 100px; overflow-y: auto; font-size: 11px;">
         """
         
-        for typ, count in sorted(stats_typow.items(), key=lambda x: x[1], reverse=True):
-            procent = (count / len(wydarzenia) * 100) if len(wydarzenia) > 0 else 0
+        for event_type, count in sorted(type_stats.items(), key=lambda x: x[1], reverse=True):
+            percent = (count / len(events) * 100) if len(events) > 0 else 0
             panel_html += f"""
                 <div style="display: flex; justify-content: space-between; margin: 2px 0; align-items: center;">
-                    <span>{typ[:18]}...</span>
+                    <span>{event_type[:18]}...</span>
                     <div style="display: flex; align-items: center;">
                         <div style="width: 30px; height: 6px; background: #e0e0e0; border-radius: 3px; margin-right: 5px;">
-                            <div style="width: {procent}%; height: 100%; background: #4ade80; border-radius: 3px;"></div>
+                            <div style="width: {percent}%; height: 100%; background: #4ade80; border-radius: 3px;"></div>
                         </div>
                         <span style="font-weight: bold; font-size: 10px;">{count}</span>
                     </div>
@@ -403,14 +377,14 @@ class MapaUkrainyZeZdjeciami:
         panel_html += """
             </div>
             
-            <h4 style="margin: 12px 0 5px 0; font-size: 13px;">🔥 Top lokalizacje:</h4>
+            <h4 style="margin: 12px 0 5px 0; font-size: 13px;">🔥 Top locations:</h4>
             <div style="max-height: 80px; overflow-y: auto; font-size: 11px;">
         """
         
-        for miasto, count in top_miasta:
+        for city, count in top_cities:
             panel_html += f"""
                 <div style="display: flex; justify-content: space-between; margin: 2px 0;">
-                    <span>{miasto}</span>
+                    <span>{city}</span>
                     <span style="font-weight: bold; color: #dc2626;">{count}</span>
                 </div>
             """
@@ -418,14 +392,14 @@ class MapaUkrainyZeZdjeciami:
         panel_html += f"""
             </div>
             
-            <h4 style="margin: 12px 0 5px 0; font-size: 13px;">📸 Źródła zdjęć:</h4>
+            <h4 style="margin: 12px 0 5px 0; font-size: 13px;">📸 Image sources:</h4>
             <div style="font-size: 11px;">
         """
         
-        for metoda, count in stats_zdjec.items():
+        for method, count in image_stats.items():
             panel_html += f"""
                 <div style="display: flex; justify-content: space-between; margin: 2px 0;">
-                    <span>{metoda.title()}</span>
+                    <span>{method.title()}</span>
                     <span style="font-weight: bold; color: #059669;">{count}</span>
                 </div>
             """
@@ -435,175 +409,182 @@ class MapaUkrainyZeZdjeciami:
             
             <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #ddd;
                        text-align: center; font-size: 10px; color: #666;">
-                <div>💡 <b>Kliknij marker aby zobaczyć zdjęcie!</b></div>
+                <div>💡 <b>Click marker to see image!</b></div>
                 <div style="margin-top: 5px;">
-                    Aktualizacja: {datetime.now().strftime('%d.%m.%Y %H:%M')}<br>
-                    Zdjęcia: Unsplash + Wikimedia + Placeholders
+                    Updated: {datetime.now().strftime('%d.%m.%Y %H:%M')}<br>
+                    Images: Local Pics folder (1.jpg - 10.jpg)
                 </div>
             </div>
         </div>
         """
         
-        self.mapa.get_root().html.add_child(folium.Element(panel_html))
+        self.map.get_root().html.add_child(folium.Element(panel_html))
     
-    def dodaj_legende_ze_zdjeciami(self):
-        """Legenda z informacjami o zdjęciach"""
-        legenda_html = """
+    def add_legend_with_images(self):
+        """Legend with image information"""
+        legend_html = """
         <div style="position: fixed; bottom: 10px; right: 10px;
                     width: 200px; background: white; 
                     border: 1px solid #ccc; border-radius: 8px;
                     padding: 12px; z-index: 9999; font-size: 11px;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
             
-            <h4 style="margin: 0 0 8px 0; text-align: center;">🗺️ Legenda</h4>
+            <h4 style="margin: 0 0 8px 0; text-align: center;">🗺️ Legend</h4>
             
-            <p><span style="color: red;">🔴</span> Ataki rakietowe</p>
-            <p><span style="color: purple;">🟣</span> Ataki dronami</p>
-            <p><span style="color: orange;">🟠</span> Ostrzał artyleryjski</p>
-            <p><span style="color: blue;">🔵</span> Alerty przeciwlotnicze</p>
-            <p><span style="color: green;">🟢</span> Infrastruktura</p>
-            <p><span style="color: darkred;">🟤</span> Inne wydarzenia</p>
+            <p><span style="color: red;">🔴</span> Missile strikes</p>
+            <p><span style="color: purple;">🟣</span> Drone attacks</p>
+            <p><span style="color: orange;">🟠</span> Artillery shelling</p>
+            <p><span style="color: blue;">🔵</span> Air raid alerts</p>
+            <p><span style="color: green;">🟢</span> Infrastructure</p>
+            <p><span style="color: darkred;">🟤</span> Other events</p>
             
             <hr style="margin: 10px 0;">
             
             <div style="background: #fffbeb; padding: 8px; border-radius: 4px; border: 1px solid #fbbf24;">
-                <b>📸 Zdjęcia w markerach:</b><br>
-                • Unsplash API<br>
-                • Wikimedia Commons<br>
-                • Placeholder images<br>
-                <small style="color: #92400e;">Kliknij marker aby zobaczyć!</small>
+                <b>📸 Images in markers:</b><br>
+                • Local Pics folder<br>
+                • Images 1.jpg - 10.jpg<br>
+                • Random selection<br>
+                <small style="color: #92400e;">Click marker to see!</small>
             </div>
             
             <div style="margin-top: 8px; text-align: center; font-size: 10px; color: #666;">
-                Dane symulowane + zdjęcia<br>
-                Aktualizacja co 15 min
+                Simulated data + local images<br>
+                Updated every 15 min
             </div>
         </div>
         """
         
-        self.mapa.get_root().html.add_child(folium.Element(legenda_html))
+        self.map.get_root().html.add_child(folium.Element(legend_html))
     
-    def dodaj_warstwy(self):
-        """Dodaje warstwy map"""
-        # Satelitarna
+    def add_layers(self):
+        """Adds map layers"""
+        # Satellite
         folium.TileLayer(
             tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             attr='Esri',
-            name='🛰️ Satelita',
+            name='🛰️ Satellite',
             overlay=False,
             control=True
-        ).add_to(self.mapa)
+        ).add_to(self.map)
         
-        # Nocna
+        # Dark
         folium.TileLayer(
             'cartodbdark_matter', 
-            name='🌙 Nocna'
-        ).add_to(self.mapa)
+            name='🌙 Dark'
+        ).add_to(self.map)
         
-        # Kontrola warstw
-        folium.LayerControl().add_to(self.mapa)
+        # Layer control
+        folium.LayerControl().add_to(self.map)
     
-    def utworz_mape_ze_zdjeciami(self):
-        """Główna funkcja - tworzy mapę ze zdjęciami"""
-        print("🇺🇦 TWORZENIE MAPY ZE ZDJĘCIAMI")
+    def create_map_with_images(self):
+        """Main function - creates map with images"""
+        print("🇺🇦 CREATING MAP WITH IMAGES")
         print("=" * 35)
-        print("📸 Każdy marker będzie miał zdjęcie!")
+        print("📸 Each marker will have an image!")
         print("=" * 35)
         
-        # 1. Generuj wydarzenia ze zdjęciami
-        wydarzenia = self.generuj_wydarzenia_ze_zdjeciami(60)
+        # 1. Generate events with images
+        events = self.generate_events_with_images(60)
         
-        # 2. Dodaj wszystko na mapę
-        self.dodaj_markery_ze_zdjeciami(wydarzenia)
-        self.dodaj_statystyki_rozszerzone(wydarzenia)
-        self.dodaj_legende_ze_zdjeciami()
-        self.dodaj_warstwy()
+        # 2. Add everything to map
+        self.add_markers_with_images(events)
+        self.add_extended_statistics(events)
+        self.add_legend_with_images()
+        self.add_layers()
         
-        print("✅ Mapa ze zdjęciami gotowa!")
-        return self.mapa
+        print("✅ Map with images ready!")
+        return self.map
     
-    def zapisz(self, nazwa="mapa_ukraina_ze_zdjeciami.html"):
-        """Zapisuje mapę"""
-        self.mapa.save(nazwa)
-        print(f"💾 Zapisano: {nazwa}")
+    def save(self, filename="ukraine_map_with_images.html"):
+        """Saves the map"""
+        self.map.save(filename)
+        print(f"💾 Saved: {filename}")
 
 # ============================================================================
-# URUCHOMIENIE
+# EXECUTION
 # ============================================================================
 
 def main():
-    print("🚀 MAPA UKRAINY ZE ZDJĘCIAMI")
+    print("🚀 UKRAINE MAP WITH IMAGES")
     print("=" * 32)
-    print("📸 Każdy marker ma zdjęcie!")
-    print("🖼️ Źródła: Unsplash + Wikimedia")
-    print("🔍 Kliknij marker aby zobaczyć")
+    print("📸 Each marker has an image!")
+    print("🖼️ Sources: Unsplash + Wikimedia")
+    print("🔍 Click marker to see")
     print("=" * 32)
     
     try:
-        # Utwórz mapę
-        mapa = MapaUkrainyZeZdjeciami()
+        # Create map
+        map_obj = UkraineMapWithImages()
         
-        # Wygeneruj i zapisz
-        mapa.utworz_mape_ze_zdjeciami()
-        mapa.zapisz("mapa_ukraina_ze_zdjeciami.html")
+        # Generate and save
+        map_obj.create_map_with_images()
+        map_obj.save("ukraine_map_with_images.html")
         
-        print("\n🎉 SUKCES!")
-        print("📁 Otwórz: mapa_ukraina_ze_zdjeciami.html")
-        print("\n🎯 NOWE FUNKCJE:")
-        print("• 📸 Zdjęcia w każdym markerze")
-        print("• 🖼️ Różne źródła obrazów")
-        print("• 📊 Statystyki źródeł zdjęć")
-        print("• 🎨 Lepsze popup'y z obrazami")
-        print("• 🔍 Tooltip'y z podglądem")
-        print("• 📐 Współrzędne w popup'ach")
-        print("\n💡 INSTRUKCJA:")
-        print("1. Kliknij na dowolny marker")
-        print("2. Zobacz zdjęcie z miejsca")
-        print("3. Przeczytaj szczegóły wydarzenia")
+        print("\n🎉 SUCCESS!")
+        print("📁 Open: ukraine_map_with_images.html")
+        print("\n🎯 NEW FEATURES:")
+        print("• 📸 Images in every marker")
+        print("• 🖼️ Multiple image sources")
+        print("• 📊 Image source statistics")
+        print("• 🎨 Better popups with images")
+        print("• 🔍 Tooltips with preview")
+        print("• 📐 Coordinates in popups")
+        print("\n💡 INSTRUCTIONS:")
+        print("1. Click on any marker")
+        print("2. See image from location")
+        print("3. Read event details")
         
     except Exception as e:
-        print(f"❌ Błąd: {e}")
+        print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()
 
 if __name__ == "__main__":
-    # Wymaga: pip install folium requests
+    # Requires: pip install folium
+    # Also requires: Pics folder with images 1.jpg to 10.jpg
     main()
 
 """
-📸 MAPA ZE ZDJĘCIAMI - NOWE FUNKCJE:
+📸 MAP WITH LOCAL IMAGES - NEW FEATURES:
 
-✅ ZDJĘCIA W MARKERACH:
-- Każdy marker ma zdjęcie w popup'ie
-- 400x300px wysokiej jakości
-- Fallback dla niedziałających URL
+✅ LOCAL IMAGES IN MARKERS:
+- Each marker has image from Pics folder
+- Uses images 1.jpg to 10.jpg
+- Random selection from available images
+- 400x300px display size
+- Fallback for missing images
 
-🖼️ ŹRÓDŁA ZDJĘĆ:
-- Unsplash API (tematyczne zdjęcia)
-- Wikimedia Commons (zdjęcia miast)
-- Placeholder images (backup)
+🖼️ LOCAL IMAGE SOURCES:
+- Pics folder in same directory
+- Images named 1.jpg, 2.jpg, ... 10.jpg
+- Automatic folder creation if missing
+- Error handling for missing files
 
-🎨 ULEPSZONE POPUP'Y:
-- Zdjęcie na górze
-- Gradient nagłówek
-- Siatka informacji
-- Kolorowe sekcje
-- Współrzędne GPS
+🎨 IMPROVED POPUPS:
+- Local image at top
+- Gradient header
+- Information grid
+- Colorful sections
+- GPS coordinates
 
-📊 ROZSZERZONE STATYSTYKI:
-- Liczba zdjęć według źródeł
-- Status wydarzeń
-- Wykres słupkowy typów
+📊 EXTENDED STATISTICS:
+- Local image count
+- Event status
+- Type bar chart
 
-🔧 TECHNICZNE:
-- Error handling dla zdjęć
-- onerror fallback w HTML
-- Responsywne rozmiary
-- Klasteryzacja z rozpakowaniem
+🔧 TECHNICAL:
+- OS path handling
+- File existence checking
+- Error handling for images
+- Responsive sizes
+- Clustering with unpacking
 
-URUCHOMIENIE:
-pip install folium requests
-python nazwa_pliku.py
+SETUP:
+1. Create 'Pics' folder in same directory as .py file
+2. Add images named 1.jpg, 2.jpg, 3.jpg, ... up to 10.jpg
+3. pip install folium
+4. python filename.py
 
-KLIKNIJ MARKER = ZOBACZ ZDJĘCIE! 📸
+CLICK MARKER = SEE LOCAL IMAGE! 📸
 """
